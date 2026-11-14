@@ -32,11 +32,7 @@ app.add_middleware(
 def db():
     conn = sqlite3.connect("app.db")
     conn.row_factory = sqlite3.Row
-    return conn
-
-
-with db() as c:
-    c.execute(
+    conn.execute(
         """CREATE TABLE IF NOT EXISTS users(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
@@ -47,6 +43,7 @@ with db() as c:
             otp_expires REAL
         )"""
     )
+    return conn
 
 
 class RegisterIn(BaseModel):
@@ -73,14 +70,18 @@ def send_otp_email(to, code):
     if not (SMTP_USER and SMTP_PASS):
         print(f"[DEV] OTP for {to}: {code}")
         return
-    msg = EmailMessage()
-    msg["Subject"] = "Your verification code"
-    msg["From"] = SMTP_USER
-    msg["To"] = to
-    msg.set_content(f"Your verification code is {code}. It expires in 10 minutes.")
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as s:
-        s.login(SMTP_USER, SMTP_PASS)
-        s.send_message(msg)
+    try:
+        msg = EmailMessage()
+        msg["Subject"] = "Your verification code"
+        msg["From"] = SMTP_USER
+        msg["To"] = to
+        msg.set_content(f"Your verification code is {code}. It expires in 10 minutes.")
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as s:
+            s.login(SMTP_USER, SMTP_PASS)
+            s.send_message(msg)
+    except Exception as e:
+        print(f"[EMAIL FAILED] {e}")
+        print(f"[DEV] OTP for {to}: {code}")
 
 
 def issue_otp(conn, email):
